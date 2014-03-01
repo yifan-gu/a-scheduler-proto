@@ -1,9 +1,11 @@
 package scheduler
 
 import (
-	//"fmt"
 	"container/heap"
+	"fmt"
 )
+
+var _ = fmt.Println
 
 const (
 	defaultQueueSize = 1024
@@ -13,6 +15,7 @@ type Result struct {
 	Id     int
 	Demand int
 	Alloc  map[int]int
+	Aging  bool
 }
 
 type Scheduler struct {
@@ -24,8 +27,10 @@ type Scheduler struct {
 	NodeList []int // nodelist
 	NextNode int   // index for RR
 
-	// user heap
-	Requestheap  *RequestHeap
+	// request heap
+	Requestheap    *RequestHeap
+	RequestAgeHeap *RequestAgeHeap
+
 	ResourceChan chan *Resource
 	RequestChan  chan *Request
 
@@ -38,6 +43,7 @@ func New() *Scheduler {
 	s := &Scheduler{
 		Resource:       make(map[int]int),
 		Requestheap:    new(RequestHeap),
+		RequestAgeHeap: new(RequestAgeHeap),
 		ResourceChan:   make(chan *Resource, defaultQueueSize),
 		RequestChan:    make(chan *Request, defaultQueueSize),
 		TerminateChan:  make(chan bool),
@@ -45,6 +51,7 @@ func New() *Scheduler {
 	}
 
 	heap.Init(s.Requestheap)
+	heap.Init(s.RequestAgeHeap)
 
 	return s
 }
@@ -71,9 +78,6 @@ func (s *Scheduler) GoStart() {
 
 func (s *Scheduler) handleNewResource(res *Resource) {
 	// add new node
-	//fmt.Println("new resource comming")
-	//fmt.Println(res)
-
 	if _, ok := s.Resource[res.nodeId]; !ok {
 		s.NodeList = append(s.NodeList, res.nodeId)
 	}
@@ -87,10 +91,8 @@ func (s *Scheduler) handleNewResource(res *Resource) {
 }
 
 func (s *Scheduler) handleNewRequest(req *Request) {
-	//fmt.Println("new request coming")
-	//fmt.Println(req)
-
 	heap.Push(s.Requestheap, req)
+	heap.Push(s.RequestAgeHeap, &req)
 }
 
 // return a list of node: resource
@@ -99,33 +101,68 @@ func (s *Scheduler) schedule() {
 		return
 	}
 
-	req := s.Requestheap.Peek().(*Request)
+	var req *Request
+
+	agingReq := s.PeekOldestRequest()
+	if agingReq != nil && (*agingReq).IsTooOld() {
+		fmt.Println("here")
+
+		req = s.Requestheap.Get((*agingReq).index).(*Request)
+	} else {
+		req = s.Requestheap.Peek().(*Request)
+	}
+
 	if s.FreeResource < req.Demand { // cluster full
 		return
 	}
 
-	resourceMap := make(map[int]int)
-	demand := req.Demand
+	scheduledResourceMap := make(map[int]int)
+	s.GetResource(req.Demand, scheduledResourceMap)
 
+	// just for result analysis
+	aging := false
+	if req.index != 0 {
+		aging = true
+	}
+
+	heap.Remove(s.Requestheap, req.index)
+
+	// sendback result
+	s.ScheduleResult <- &Result{req.id, req.Demand, scheduledResourceMap, aging}
+}
+
+func (s *Scheduler) PeekOldestRequest() **Request {
+	rh := s.RequestAgeHeap
+
+	for rh.Len() > 0 {
+		agingReq := rh.Peek()
+		if (*agingReq).index >= 0 {
+			return agingReq
+		}
+		heap.Pop(rh)
+	}
+	return nil
+}
+
+func (s *Scheduler) GetResource(demand int, scheduledResourceMap map[int]int) {
 	// TODO: wait a while for locality, Now just RR
-
 	for {
 		nodeId := s.NodeList[s.NextNode]
 
 		if s.Resource[nodeId] > 0 {
 			delta := Min(s.Resource[nodeId], demand)
+
 			s.Resource[nodeId] = s.Resource[nodeId] - delta
 			s.FreeResource = s.FreeResource - delta
 			demand = demand - delta
-			resourceMap[nodeId] = delta
+
+			scheduledResourceMap[nodeId] = delta
 			if demand == 0 {
 				break
 			}
 		}
 		s.NextNode = (s.NextNode + 1) % len(s.NodeList) // TODO: delete empty nodes
 	}
-	heap.Pop(s.Requestheap)
-	s.ScheduleResult <- &Result{req.id, req.Demand, resourceMap}
 }
 
 func (s *Scheduler) Terminate() {

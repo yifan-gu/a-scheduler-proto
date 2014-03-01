@@ -5,8 +5,11 @@ Just a proto
 
 #Schedule Policy.
 
-Fairness schedule, serve the small demands first.
-It will have starvation problem, I will take care of that later.
+In branch aging:
+1. Prefer old request (avoid starvation)
+
+In branch throughput
+2. Serve the small tasks first.
 
 #To run
 

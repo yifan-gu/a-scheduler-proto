@@ -1,27 +1,37 @@
 package scheduler
 
 import (
-	//"container/heap"
-	//"fmt"
+	"fmt"
 	"time"
 )
 
+var _ = fmt.Println
+
 const (
-	defaultAgeLimit = 1000000000 * 10 // 10s
+	DefaultTimeOutMillis = 20 // 10ms
 )
 
 type Request struct {
-	ts     int64
+	ts     time.Time
 	id     int
 	Demand int
+	index  int
 }
 
 func NewRequest(id, demand int) *Request {
 	return &Request{
-		ts:     time.Now().UnixNano(),
+		ts:     time.Now(),
 		id:     id,
 		Demand: demand,
 	}
+}
+
+func (r *Request) Id() int {
+	return r.id
+}
+
+func (r *Request) IsTooOld() bool {
+	return time.Now().After(r.ts.Add(time.Millisecond * DefaultTimeOutMillis))
 }
 
 type RequestHeap []*Request
@@ -32,35 +42,69 @@ func (rh RequestHeap) Len() int {
 }
 
 func (rh RequestHeap) Less(i, j int) bool {
-	ageI := time.Now().UnixNano() - rh[i].ts
-	ageJ := time.Now().UnixNano() - rh[j].ts
-
-	if ageI > defaultAgeLimit {
-		return true
-	}
-	if ageJ > defaultAgeLimit {
-		return false
-	}
-
 	return rh[i].Demand < rh[j].Demand
 }
 
 func (rh RequestHeap) Swap(i, j int) {
 	rh[i], rh[j] = rh[j], rh[i]
+	rh[i].index, rh[j].index = i, j
 }
 
 func (rh *RequestHeap) Push(u interface{}) {
-	*rh = append(*rh, u.(*Request))
+	req := u.(*Request)
+	req.index = rh.Len()
+	*rh = append(*rh, req)
 }
 
 func (rh *RequestHeap) Pop() interface{} {
+	fmt.Println("pop here")
+
 	old := *rh
 	n := len(old)
-	u := old[n-1]
+	req := old[n-1]
+	req.index = -1
 	*rh = old[0 : n-1]
-	return u
+	return req
 }
 
 func (rh RequestHeap) Peek() interface{} {
+	return rh[0]
+}
+
+func (rh RequestHeap) Get(index int) interface{} {
+	return rh[index]
+}
+
+// Another heap for maintaing aging problem
+type RequestAgeHeap []**Request
+
+// interfaces for heap
+func (rh RequestAgeHeap) Len() int {
+	return len(rh)
+}
+
+func (rh RequestAgeHeap) Less(i, j int) bool {
+	reqI := *rh[i]
+	reqJ := *rh[j]
+	return reqI.ts.Before(reqJ.ts)
+}
+
+func (rh RequestAgeHeap) Swap(i, j int) {
+	rh[i], rh[j] = rh[j], rh[i]
+}
+
+func (rh *RequestAgeHeap) Push(u interface{}) {
+	*rh = append(*rh, u.(**Request))
+}
+
+func (rh *RequestAgeHeap) Pop() interface{} {
+	old := *rh
+	n := len(old)
+	reqPtr := old[n-1]
+	*rh = old[0 : n-1]
+	return reqPtr
+}
+
+func (rh RequestAgeHeap) Peek() **Request {
 	return rh[0]
 }
