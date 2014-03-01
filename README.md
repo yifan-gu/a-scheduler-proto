@@ -23,4 +23,4 @@ The result will be displayed in result.log
 
 There is a discussion on the scheduling policy 
 
-[link][https://gist.github.com/yifan-gu/9286214]
+[discussion](https://gist.github.com/yifan-gu/9286214)
