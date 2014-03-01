@@ -105,11 +105,9 @@ func (s *Scheduler) schedule() {
 
 	agingReq := s.PeekOldestRequest()
 	if agingReq != nil && (*agingReq).IsTooOld() {
-		fmt.Println("here")
-
 		req = s.Requestheap.Get((*agingReq).index).(*Request)
 	} else {
-		req = s.Requestheap.Peek().(*Request)
+		req = s.Requestheap.Peek()
 	}
 
 	if s.FreeResource < req.Demand { // cluster full

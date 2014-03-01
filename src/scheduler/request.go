@@ -8,7 +8,7 @@ import (
 var _ = fmt.Println
 
 const (
-	DefaultTimeOutMillis = 20 // 10ms
+	DefaultTimeOutMillis = 1000 // 1000ms
 )
 
 type Request struct {
@@ -57,8 +57,6 @@ func (rh *RequestHeap) Push(u interface{}) {
 }
 
 func (rh *RequestHeap) Pop() interface{} {
-	fmt.Println("pop here")
-
 	old := *rh
 	n := len(old)
 	req := old[n-1]
@@ -67,7 +65,7 @@ func (rh *RequestHeap) Pop() interface{} {
 	return req
 }
 
-func (rh RequestHeap) Peek() interface{} {
+func (rh RequestHeap) Peek() *Request {
 	return rh[0]
 }
 

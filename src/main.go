@@ -12,8 +12,8 @@ const (
 )
 
 const (
-	defaultResourceArrivalMillis = 2
-	defaultRequstArrivalMillis   = scheduler.DefaultTimeOutMillis / 10
+	defaultResourceArrivalMillis = 10
+	defaultRequstArrivalMillis   = 10
 )
 
 func main() {
