@@ -1,21 +1,24 @@
 a-scheduler-proto
 =================
 
-Just a proto
-
 #Schedule Policy.
 
-In branch aging:
+In the branch `aging`:
 1. Prefer old request (avoid starvation)
 
-In branch throughput
+In branch `throughput`
 2. Serve the small tasks first.
 
 #To run
 
 ```shell
+$ export GOPATH=$PWD
 $ cd src
-$ go run main.go
+$ go run main.go > result.log
 ```
 
 It will generate random resource and request sequences to the scheduler.
+
+The result will be displayed in result.log
+
+There is a discussion on the scheduling policy 
