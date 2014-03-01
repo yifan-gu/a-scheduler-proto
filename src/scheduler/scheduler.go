@@ -15,7 +15,6 @@ type Result struct {
 	Id     int
 	Demand int
 	Alloc  map[int]int
-	Aging  bool
 }
 
 type Scheduler struct {
@@ -28,8 +27,7 @@ type Scheduler struct {
 	NextNode int   // index for RR
 
 	// request heap
-	Requestheap    *RequestHeap
-	RequestAgeHeap *RequestAgeHeap
+	Requestheap *RequestHeap
 
 	ResourceChan chan *Resource
 	RequestChan  chan *Request
@@ -43,7 +41,6 @@ func New() *Scheduler {
 	s := &Scheduler{
 		Resource:       make(map[int]int),
 		Requestheap:    new(RequestHeap),
-		RequestAgeHeap: new(RequestAgeHeap),
 		ResourceChan:   make(chan *Resource, defaultQueueSize),
 		RequestChan:    make(chan *Request, defaultQueueSize),
 		TerminateChan:  make(chan bool),
@@ -51,7 +48,6 @@ func New() *Scheduler {
 	}
 
 	heap.Init(s.Requestheap)
-	heap.Init(s.RequestAgeHeap)
 
 	return s
 }
@@ -92,7 +88,6 @@ func (s *Scheduler) handleNewResource(res *Resource) {
 
 func (s *Scheduler) handleNewRequest(req *Request) {
 	heap.Push(s.Requestheap, req)
-	heap.Push(s.RequestAgeHeap, &req)
 }
 
 // return a list of node: resource
@@ -101,17 +96,7 @@ func (s *Scheduler) schedule() {
 		return
 	}
 
-	var req *Request
-
-	agingReq := s.PeekOldestRequest()
-	if agingReq != nil && (*agingReq).IsTooOld() {
-		fmt.Println("here")
-
-		req = s.Requestheap.Get((*agingReq).index).(*Request)
-	} else {
-		req = s.Requestheap.Peek().(*Request)
-	}
-
+	req := s.Requestheap.Peek()
 	if s.FreeResource < req.Demand { // cluster full
 		return
 	}
@@ -119,29 +104,10 @@ func (s *Scheduler) schedule() {
 	scheduledResourceMap := make(map[int]int)
 	s.GetResource(req.Demand, scheduledResourceMap)
 
-	// just for result analysis
-	aging := false
-	if req.index != 0 {
-		aging = true
-	}
-
-	heap.Remove(s.Requestheap, req.index)
+	heap.Pop(s.Requestheap)
 
 	// sendback result
-	s.ScheduleResult <- &Result{req.id, req.Demand, scheduledResourceMap, aging}
-}
-
-func (s *Scheduler) PeekOldestRequest() **Request {
-	rh := s.RequestAgeHeap
-
-	for rh.Len() > 0 {
-		agingReq := rh.Peek()
-		if (*agingReq).index >= 0 {
-			return agingReq
-		}
-		heap.Pop(rh)
-	}
-	return nil
+	s.ScheduleResult <- &Result{req.id, req.Demand, scheduledResourceMap}
 }
 
 func (s *Scheduler) GetResource(demand int, scheduledResourceMap map[int]int) {
