@@ -1,23 +1,24 @@
 package scheduler
 
-//import (
-//	"container/heap"
-//	//"fmt"
-//	//"time"
-//)
+import (
+	//"container/heap"
+	//"fmt"
+	"time"
+)
 
-//const (
-//	timeDelta    = 1000000000 * 10 // 10s
-//	priorityDiff = 2
-//)
+const (
+	defaultAgeLimit = 1000000000 * 10 // 10s
+)
 
 type Request struct {
+	ts     int64
 	id     int
 	Demand int
 }
 
 func NewRequest(id, demand int) *Request {
 	return &Request{
+		ts:     time.Now().UnixNano(),
 		id:     id,
 		Demand: demand,
 	}
@@ -31,6 +32,16 @@ func (rh RequestHeap) Len() int {
 }
 
 func (rh RequestHeap) Less(i, j int) bool {
+	ageI := time.Now().UnixNano() - rh[i].ts
+	ageJ := time.Now().UnixNano() - rh[j].ts
+
+	if ageI > defaultAgeLimit {
+		return true
+	}
+	if ageJ > defaultAgeLimit {
+		return false
+	}
+
 	return rh[i].Demand < rh[j].Demand
 }
 
