@@ -24,3 +24,5 @@ It will generate random resource and request sequences to the scheduler.
 The result will be displayed in result.log
 
 There is a discussion on the scheduling policy 
+
+[discussion](https://gist.github.com/yifan-gu/9286214)
