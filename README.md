@@ -15,7 +15,6 @@ One eventloop keeps listening for new requests and resources, and dispatch these
 * In branch `throughput`:
 
   Serve the small tasks first.
->>>>>>> 5ec416103e5e7374d7a36e7ece489282744f05c6
 
 #To run
 
