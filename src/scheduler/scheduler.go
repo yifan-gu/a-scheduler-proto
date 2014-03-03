@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"container/heap"
+	"container/list"
 	"fmt"
 )
 
@@ -17,29 +18,44 @@ type Result struct {
 	Alloc  map[int]int
 }
 
+type NodeInfo struct {
+	NodeId        int
+	ResourceCount int
+}
+
+func (n *NodeInfo) increaseResource(quota int) {
+	n.ResourceCount = n.ResourceCount + quota
+}
+
+func (n *NodeInfo) decreaseResource(quota int) {
+	n.ResourceCount = n.ResourceCount - quota
+}
+
+func (n *NodeInfo) inFreeNodes() bool {
+	return n.ResourceCount != 0
+}
+
 type Scheduler struct {
 	TotalResource int // total resource count
 	FreeResource  int
 
-	Resource map[int]int // single resource, nodeId -> resourceNumber
-
-	NodeList []int // nodelist
-	NextNode int   // index for RR
+	NodeInfos map[int]*NodeInfo // NodeId -> NodeInfo
+	FreeNodes *list.List
 
 	// request heap
 	Requestheap *RequestHeap
 
-	ResourceChan chan *Resource
-	RequestChan  chan *Request
-
+	// signal channels
+	ResourceChan   chan *Resource
+	RequestChan    chan *Request
 	ScheduleResult chan *Result
-
-	TerminateChan chan bool
+	TerminateChan  chan bool
 }
 
 func New() *Scheduler {
 	s := &Scheduler{
-		Resource:       make(map[int]int),
+		NodeInfos:      make(map[int]*NodeInfo),
+		FreeNodes:      list.New(),
 		Requestheap:    new(RequestHeap),
 		ResourceChan:   make(chan *Resource, defaultQueueSize),
 		RequestChan:    make(chan *Request, defaultQueueSize),
@@ -73,15 +89,24 @@ func (s *Scheduler) GoStart() {
 }
 
 func (s *Scheduler) handleNewResource(res *Resource) {
-	// add new node
-	if _, ok := s.Resource[res.nodeId]; !ok {
-		s.NodeList = append(s.NodeList, res.nodeId)
-	}
-
-	// increase the resource count
-	s.Resource[res.nodeId] = s.Resource[res.nodeId] + res.resourceCount
 	s.TotalResource = s.TotalResource + res.resourceCount
 	s.FreeResource = s.FreeResource + res.resourceCount
+
+	if _, ok := s.NodeInfos[res.nodeId]; !ok {
+		// add the new node to NodeInfos and FreeNodes
+		newNode := &NodeInfo{
+			NodeId: res.nodeId,
+		}
+		s.NodeInfos[res.nodeId] = newNode
+
+	}
+
+	node := s.NodeInfos[res.nodeId]
+
+	if !node.inFreeNodes() {
+		s.FreeNodes.PushBack(node.NodeId)
+	}
+	node.increaseResource(res.resourceCount)
 
 	s.schedule()
 }
@@ -101,33 +126,33 @@ func (s *Scheduler) schedule() {
 		return
 	}
 
-	scheduledResourceMap := make(map[int]int)
-	s.GetResource(req.Demand, scheduledResourceMap)
+	// create a map for storing allocation result
+	result := make(map[int]int)
+	s.GetResource(req.Demand, result)
 
 	heap.Pop(s.Requestheap)
 
 	// sendback result
-	s.ScheduleResult <- &Result{req.id, req.Demand, scheduledResourceMap}
+	s.ScheduleResult <- &Result{req.id, req.Demand, result}
 }
 
-func (s *Scheduler) GetResource(demand int, scheduledResourceMap map[int]int) {
+func (s *Scheduler) GetResource(demand int, result map[int]int) {
 	// TODO: wait a while for locality, Now just RR
 	for {
-		nodeId := s.NodeList[s.NextNode]
+		e := s.FreeNodes.Front()
+		nodeId := e.Value.(int)
 
-		if s.Resource[nodeId] > 0 {
-			delta := Min(s.Resource[nodeId], demand)
+		quota := Min(s.NodeInfos[nodeId].ResourceCount, demand)
 
-			s.Resource[nodeId] = s.Resource[nodeId] - delta
-			s.FreeResource = s.FreeResource - delta
-			demand = demand - delta
+		s.NodeInfos[nodeId].decreaseResource(quota)
+		s.FreeResource = s.FreeResource - quota
+		demand = demand - quota
 
-			scheduledResourceMap[nodeId] = delta
-			if demand == 0 {
-				break
-			}
+		result[nodeId] = quota
+		if demand == 0 {
+			break
 		}
-		s.NextNode = (s.NextNode + 1) % len(s.NodeList) // TODO: delete empty nodes
+		s.FreeNodes.Remove(e)
 	}
 }
 
