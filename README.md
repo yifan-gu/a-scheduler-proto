@@ -1,5 +1,10 @@
-a-scheduler-proto
+A Simple Scheduler
 =================
+#Structure
+
+I used asynchronized model:
+One eventloop keeps listening for new requests and resources, and dispatch these events to there handlers
+          
 
 #Schedule Policy.
 
