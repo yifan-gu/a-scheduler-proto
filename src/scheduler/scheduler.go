@@ -166,7 +166,7 @@ func (s *Scheduler) PeekOldestRequest() **Request {
 	return nil
 }
 
-func (s *Scheduler) GetResource(demand int, scheduledResourceMap map[int]int) {
+func (s *Scheduler) GetResource(demand int, result map[int]int) {
 	// TODO: wait a while for locality, Now just RR
 	for {
 		e := s.FreeNodes.Front()
