@@ -25,19 +25,27 @@ func main() {
 
 	sched := scheduler.New()
 	sched.GoStart()
-	go generateResource(sched.ResourceChan)
-	go generateRequest(sched.RequestChan, &reqList)
+	go generateResource(sched)
+	go generateRequest(sched, &reqList)
 
 	go func() {
 		<-time.After(time.Second * 200) // timeout
 		close(closeChan)
 	}()
 
+	go func() {
+		for {
+			res := sched.GetResult()
+			if res == nil {
+				return
+			}
+			resultList = append(resultList, res)
+			printResult(res, &cnt, finishChan)
+		}
+	}()
+
 	for {
 		select {
-		case m := <-sched.ScheduleResult:
-			resultList = append(resultList, m)
-			printResult(m, &cnt, finishChan)
 		case <-closeChan:
 			fmt.Println("Timetout!")
 			printFinalResult(reqList, resultList)
@@ -85,7 +93,7 @@ func printResult(res *scheduler.Result, cnt *int, finishChan chan bool) {
 }
 
 // TODO: goroutine leak
-func generateResource(resChan chan *scheduler.Resource) {
+func generateResource(sched scheduler.Scheduler) {
 	s := rand.NewSource(1)
 	r := rand.New(s)
 	for {
@@ -93,12 +101,12 @@ func generateResource(resChan chan *scheduler.Resource) {
 		fmt.Printf("Get Resource for node[%d], resource count: %d\n", number, 1)
 
 		res := scheduler.NewResource(number, number)
-		resChan <- res
+		sched.RecvResource(res)
 		<-time.After(time.Millisecond * defaultResourceArrivalMillis)
 	}
 }
 
-func generateRequest(reqChan chan *scheduler.Request, reqList *[]*scheduler.Request) {
+func generateRequest(sched scheduler.Scheduler, reqList *[]*scheduler.Request) {
 	s := rand.NewSource(1)
 	r := rand.New(s)
 	for i := 0; i < totalRequest; i++ {
@@ -106,7 +114,7 @@ func generateRequest(reqChan chan *scheduler.Request, reqList *[]*scheduler.Requ
 		req := scheduler.NewRequest(i, reqNum)
 		*reqList = append(*reqList, req)
 		fmt.Printf("Get Request for id[%d], asking for %d resource\n", i, reqNum)
-		reqChan <- req
+		sched.RecvRequest(req)
 		<-time.After(time.Millisecond * defaultRequstArrivalMillis)
 	}
 }

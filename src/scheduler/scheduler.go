@@ -12,6 +12,14 @@ const (
 	defaultQueueSize = 1024
 )
 
+type Scheduler interface {
+	GoStart()
+	RecvResource(*Resource)
+	RecvRequest(*Request)
+	GetResult() *Result
+	Terminate()
+}
+
 type Result struct {
 	Id     int
 	Demand int
@@ -35,7 +43,7 @@ func (n *NodeInfo) inFreeNodes() bool {
 	return n.ResourceCount != 0
 }
 
-type Scheduler struct {
+type scheduler struct {
 	TotalResource int // total resource count
 	FreeResource  int
 
@@ -52,8 +60,8 @@ type Scheduler struct {
 	TerminateChan  chan bool
 }
 
-func New() *Scheduler {
-	s := &Scheduler{
+func New() Scheduler {
+	s := &scheduler{
 		NodeInfos:      make(map[int]*NodeInfo),
 		FreeNodes:      list.New(),
 		Requestheap:    new(RequestHeap),
@@ -68,7 +76,7 @@ func New() *Scheduler {
 }
 
 // Start the event-loop
-func (s *Scheduler) Start() {
+func (s *scheduler) Start() {
 	for {
 		select {
 		case res := <-s.ResourceChan:
@@ -83,11 +91,24 @@ func (s *Scheduler) Start() {
 }
 
 // Nonblocking start
-func (s *Scheduler) GoStart() {
+func (s *scheduler) GoStart() {
 	go s.Start()
 }
 
-func (s *Scheduler) handleNewResource(res *Resource) {
+// Interfaces
+func (s *scheduler) RecvResource(res *Resource) {
+	s.ResourceChan <- res
+}
+
+func (s *scheduler) RecvRequest(req *Request) {
+	s.RequestChan <- req
+}
+
+func (s *scheduler) GetResult() *Result {
+	return <-s.ScheduleResult
+}
+
+func (s *scheduler) handleNewResource(res *Resource) {
 	s.TotalResource = s.TotalResource + res.resourceCount
 	s.FreeResource = s.FreeResource + res.resourceCount
 
@@ -108,13 +129,13 @@ func (s *Scheduler) handleNewResource(res *Resource) {
 	s.schedule()
 }
 
-func (s *Scheduler) handleNewRequest(req *Request) {
+func (s *scheduler) handleNewRequest(req *Request) {
 	heap.Push(s.Requestheap, req)
 	s.schedule()
 }
 
 // return a list of node: resource
-func (s *Scheduler) schedule() {
+func (s *scheduler) schedule() {
 	if s.FreeResource == 0 || s.Requestheap.Len() == 0 {
 		return
 	}
@@ -134,7 +155,7 @@ func (s *Scheduler) schedule() {
 	s.ScheduleResult <- &Result{req.id, req.Demand, result}
 }
 
-func (s *Scheduler) GetResource(demand int, result map[int]int) {
+func (s *scheduler) GetResource(demand int, result map[int]int) {
 	// TODO: wait a while for locality, Now just RR
 	for {
 		e := s.FreeNodes.Front()
@@ -154,8 +175,9 @@ func (s *Scheduler) GetResource(demand int, result map[int]int) {
 	}
 }
 
-func (s *Scheduler) Terminate() {
+func (s *scheduler) Terminate() {
 	close(s.TerminateChan)
+	close(s.ScheduleResult)
 }
 
 // return the min of the two value
