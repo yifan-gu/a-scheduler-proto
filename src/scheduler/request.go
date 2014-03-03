@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"fmt"
-	"time"
 )
 
 var _ = fmt.Println
@@ -12,15 +11,12 @@ const (
 )
 
 type Request struct {
-	ts     time.Time
 	id     int
 	Demand int
-	index  int
 }
 
 func NewRequest(id, demand int) *Request {
 	return &Request{
-		ts:     time.Now(),
 		id:     id,
 		Demand: demand,
 	}
@@ -28,10 +24,6 @@ func NewRequest(id, demand int) *Request {
 
 func (r *Request) Id() int {
 	return r.id
-}
-
-func (r *Request) IsTooOld() bool {
-	return time.Now().After(r.ts.Add(time.Millisecond * DefaultTimeOutMillis))
 }
 
 type RequestHeap []*Request
@@ -47,12 +39,10 @@ func (rh RequestHeap) Less(i, j int) bool {
 
 func (rh RequestHeap) Swap(i, j int) {
 	rh[i], rh[j] = rh[j], rh[i]
-	rh[i].index, rh[j].index = i, j
 }
 
 func (rh *RequestHeap) Push(u interface{}) {
 	req := u.(*Request)
-	req.index = rh.Len()
 	*rh = append(*rh, req)
 }
 
@@ -60,7 +50,6 @@ func (rh *RequestHeap) Pop() interface{} {
 	old := *rh
 	n := len(old)
 	req := old[n-1]
-	req.index = -1
 	*rh = old[0 : n-1]
 	return req
 }

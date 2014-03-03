@@ -64,7 +64,7 @@ func printFinalResult(reqList []*scheduler.Request, resultList []*scheduler.Resu
 
 	fmt.Println("Result Sequence")
 	for _, v := range resultList {
-		fmt.Printf("Id:%d, Demand:%d, aging? %v\n", v.Id, v.Demand, v.Aging)
+		fmt.Printf("Id:%d, Demand:%d\n", v.Id, v.Demand)
 	}
 	fmt.Println()
 

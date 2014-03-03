@@ -1,13 +1,21 @@
-a-scheduler-proto
+A Simple Scheduler
 =================
+#Structure
+
+I used asynchronized model:
+One eventloop keeps listening for new requests and resources, and dispatch these events to there handlers
+          
 
 #Schedule Policy.
 
-In the branch `aging`:
-1. Prefer old request (avoid starvation)
+* In the branch `aging`:
 
-In branch `throughput`
-2. Serve the small tasks first.
+  Prefer old request (avoid starvation)
+
+* In branch `throughput`:
+
+  Serve the small tasks first.
+>>>>>>> 5ec416103e5e7374d7a36e7ece489282744f05c6
 
 #To run
 
