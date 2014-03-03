@@ -4,13 +4,22 @@ A Simple Scheduler
 
 I used asynchronized model:
 One eventloop keeps listening for new requests and resources, and dispatch these events to there handlers
-          
 
-#Schedule Policy.
+#Schedule Policy
 
 * In the branch `aging`:
 
-  Prefer old request (avoid starvation)
+  Prefer old request (avoid starvation). 
+
+* How to deal with starvation?
+  
+  I maintain two heaps for requests.
+
+  One has the smallest request on the top, 
+  the other has the oldest request on the top.
+
+  Each time choosing a request to serve, I will test whether the oldest request is too old.
+  If so, I will serve that request first, otherwise I will serve the smallest request first.
 
 * In branch `throughput`:
 
@@ -19,9 +28,11 @@ One eventloop keeps listening for new requests and resources, and dispatch these
 #To run
 
 ```shell
+$ git clone git@github.com:yifan-gu/a-scheduler-proto.git
+$ cd a-scheduler-proto
 $ export GOPATH=$PWD
-$ cd src
-$ go run main.go > result.log
+$ git checkout [branch_name]
+$ go run src/main.go > result.log
 ```
 
 It will generate random resource and request sequences to the scheduler.
