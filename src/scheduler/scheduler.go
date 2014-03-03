@@ -47,6 +47,7 @@ type Scheduler struct {
 	Requestheap    *RequestHeap
 	RequestAgeHeap *RequestAgeHeap
 
+	// signal channels
 	ResourceChan   chan *Resource
 	RequestChan    chan *Request
 	ScheduleResult chan *Result
@@ -103,9 +104,7 @@ func (s *Scheduler) handleNewResource(res *Resource) {
 		s.NodeInfos[res.nodeId] = newNode
 
 	}
-
 	node := s.NodeInfos[res.nodeId]
-
 	if !node.inFreeNodes() {
 		s.FreeNodes.PushBack(node.NodeId)
 	}
@@ -117,6 +116,8 @@ func (s *Scheduler) handleNewResource(res *Resource) {
 func (s *Scheduler) handleNewRequest(req *Request) {
 	heap.Push(s.Requestheap, req)
 	heap.Push(s.RequestAgeHeap, &req)
+	
+	s.schedule()
 }
 
 // return a list of node: resource
@@ -177,8 +178,8 @@ func (s *Scheduler) GetResource(demand int, result map[int]int) {
 		s.NodeInfos[nodeId].decreaseResource(quota)
 		s.FreeResource = s.FreeResource - quota
 		demand = demand - quota
-
 		result[nodeId] = quota
+
 		if demand == 0 {
 			break
 		}

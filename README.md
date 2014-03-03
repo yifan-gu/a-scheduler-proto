@@ -28,9 +28,11 @@ One eventloop keeps listening for new requests and resources, and dispatch these
 #To run
 
 ```shell
+$ git clone git@github.com:yifan-gu/a-scheduler-proto.git
+$ cd a-scheduler-proto
 $ export GOPATH=$PWD
-$ cd src
-$ go run main.go > result.log
+$ git checkout [branch_name]
+$ go run src/main.go > result.log
 ```
 
 It will generate random resource and request sequences to the scheduler.
